@@ -45,7 +45,7 @@ def test_RequiredDataValidator_validate_with_definition():
     dsd = DataStructureDefinition(
         TEST_DATA_DIR / "requiredData" / "definition", dimensions=["region", "variable"]
     )
-    assert rdv.validate_with_definition(dsd) is None
+    assert dsd.validate_RequiredDataValidator(rdv) is None
 
 
 @pytest.mark.parametrize(
@@ -76,7 +76,7 @@ def test_RequiredDataValidator_validate_with_definition_raises(requiredDataFile,
     )
 
     with pytest.raises(ValueError, match=match):
-        rdv.validate_with_definition(dsd)
+        dsd.validate_RequiredDataValidator(rdv)
 
 
 def test_RequiredData_apply(simple_df):

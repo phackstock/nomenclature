@@ -154,9 +154,11 @@ def test_region_processor_not_defined(simple_definition):
         "region_not_defined"
     )
     with pytest.raises(pydantic.ValidationError, match=error_msg):
-        RegionProcessor.from_directory(
-            TEST_DATA_DIR / "regionprocessor_not_defined"
-        ).validate_with_definition(simple_definition)
+        simple_definition.validate_RegionProcessor(
+            RegionProcessor.from_directory(
+                TEST_DATA_DIR / "regionprocessor_not_defined"
+            )
+        )
 
 
 def test_region_processor_duplicate_model_mapping():
