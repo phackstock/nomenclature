@@ -58,15 +58,15 @@ def process(
     # perform validation and region-processing (optional)
     if processor is None:
         dsd.validate(df, dimensions=dimensions)
+    elif "region" in dimensions:
+        dsd.validate_RegionProcessor(processor)
+        dimensions.remove("region")
+        dsd.validate(df, dimensions=dimensions)
+        df = processor.apply(df, dsd.variable)
+        dsd.validate(df, dimensions=["region"])
     else:
-        if "region" in dimensions:
-            dimensions.remove("region")
-            dsd.validate(df, dimensions=dimensions)
-            df = processor.apply(df, dsd)
-            dsd.validate(df, dimensions=["region"])
-        else:
-            dsd.validate(df, dimensions=dimensions)
-            df = processor.apply(df, dsd)
+        dsd.validate(df, dimensions=dimensions)
+        df = processor.apply(df, dsd.variable)
 
     # check consistency across the variable hierarchy
     error = dsd.check_aggregate(df)
