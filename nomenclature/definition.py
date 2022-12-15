@@ -1,12 +1,24 @@
 import logging
 from pathlib import Path
+from typing import List, Tuple
+
 
 import pandas as pd
+import pydantic
 from pyam import IamDataFrame
 from pyam.index import replace_index_labels
 from pyam.logging import adjust_log_level
+from pydantic.error_wrappers import ErrorWrapper
 
 from nomenclature.codelist import CodeList, RegionCodeList, VariableCodeList
+from nomenclature.error.region import RegionNotDefinedError
+from nomenclature.processor import (
+    RegionAggregationMapping,
+    RegionProcessor,
+    RequiredDataValidator,
+)
+from nomenclature.processor.requiredData import RequiredData
+from nomenclature.processor.utils import get_relative_path
 from nomenclature.validation import validate
 
 logger = logging.getLogger(__name__)
@@ -137,3 +149,91 @@ class DataStructureDefinition:
         """
         # TODO write all dimensions to the file
         self.variable.to_excel(excel_writer, sheet_name, sort_by_code, **kwargs)
+
+    def validate_RegionProcessor(self, rp: RegionProcessor) -> None:
+        """Check if all mappings are valid and collect all errors."""
+        errors = []
+        for mapping in rp.mappings.values():
+            try:
+                self.validate_RegionAggregationMapping(mapping)
+            except RegionNotDefinedError as rnde:
+                errors.append(ErrorWrapper(rnde, f"mappings -> {mapping.model}"))
+        if errors:
+            raise pydantic.ValidationError(errors, model=rp.__class__)
+
+    def validate_RegionAggregationMapping(self, ram: RegionAggregationMapping):
+        if hasattr(self, "region"):
+            if invalid := [
+                c for c in ram.all_regions if c not in getattr(self, "region")
+            ]:
+                raise RegionNotDefinedError(region=invalid, file=ram.file)
+
+    def validate_RequiredDataValidator(self, rdv: RequiredDataValidator) -> None:
+
+        errors = []
+        for field, value in (
+            (field, getattr(rdv, field))
+            for field in ("required_data", "optional_data")
+            if getattr(rdv, field) is not None
+        ):
+            for i, data in enumerate(value):
+                try:
+                    self.validate_RequiredData(data)
+                except ValueError as ve:
+                    errors.append(
+                        ErrorWrapper(
+                            ve,
+                            (
+                                f"In file {get_relative_path(rdv.file)}\n{field} "
+                                f"entry nr. {i+1}"
+                            ),
+                        )
+                    )
+        if errors:
+            raise pydantic.ValidationError(errors, model=rdv.__class__)
+
+    def validate_RequiredData(self, rd: RequiredData) -> None:
+        error_msg = ""
+
+        # check for undefined regions and variables
+        for dim in ("region", "variable"):
+            if not_defined_dims := self._undefined_dimension(dim, rd):
+                error_msg += (
+                    f"The following {dim}(s) were not found in the "
+                    f"DataStructureDefinition:\n{not_defined_dims}\n"
+                )
+        # check for defined variables with wrong units
+        if wrong_unit_variables := self._wrong_unit_variables(rd):
+            error_msg += (
+                "The following variables were found in the "
+                "DataStructureDefinition but have the wrong unit "
+                "(affected variable, wrong unit, expected unit):\n"
+                f"{wrong_unit_variables}"
+            )
+
+        if error_msg:
+            raise ValueError(error_msg)
+
+    def _undefined_dimension(self, dimension: str, rd: RequiredData) -> List[str]:
+        missing_items: List[str] = []
+        # only check if both the current instance and the DataStructureDefinition
+        # have the dimension in question
+        if getattr(rd, dimension) and hasattr(self, dimension):
+            missing_items.extend(
+                dim
+                for dim in getattr(rd, dimension)
+                if dim not in getattr(self, dimension)
+            )
+
+        return missing_items
+
+    def _wrong_unit_variables(self, rd: RequiredData) -> List[Tuple[str, str, str]]:
+        wrong_units: List[Tuple[str, str, str]] = []
+        if hasattr(self, "variable"):
+            wrong_units.extend(
+                (var, rd.unit, getattr(self, "variable")[var].unit)
+                for var in getattr(self, "variable")
+                if rd.unit and rd.unit not in getattr(self, "variable")[var].units
+            )
+
+        return wrong_units
