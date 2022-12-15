@@ -92,12 +92,12 @@ def assert_valid_structure(
     definition = DataStructureDefinition(path / definitions, dimensions)
     if mappings is None:
         if (path / "mappings").is_dir():
-            RegionProcessor.from_directory(path / "mappings").validate_with_definition(
-                definition
+            definition.validate_RegionProcessor(
+                RegionProcessor.from_directory(path / "mappings")
             )
     elif (path / mappings).is_dir():
-        RegionProcessor.from_directory(path / mappings).validate_with_definition(
-            definition
+        definition.validate_RegionProcessor(
+            RegionProcessor.from_directory(path / mappings)
         )
     else:
         raise FileNotFoundError(f"Mappings directory not found: {path / mappings}")
