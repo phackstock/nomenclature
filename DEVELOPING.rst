@@ -4,7 +4,7 @@ Local development
 Nomenclature uses poetry for local development. Follow these steps to get setup:
 
 
-```bash
+```console
 # clone the nomenclature repository
 git clone git@github.com:IAMconsortium/nomenclature.git
 cd nomenclature
