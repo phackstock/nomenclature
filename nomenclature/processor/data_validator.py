@@ -12,7 +12,6 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    field_serializer,
     field_validator,
     model_validator,
 )
@@ -44,13 +43,10 @@ class DataValidationCriteria(BaseModel, ABC):
                 return WarningEnum[value]
             except KeyError:
                 raise ValueError(
-                    f"Invalid warning level: {value}. Expected one of: {', '.join(WarningEnum.__members__.keys())}"
+                    f"Invalid warning level: {value}. Expected one of:"
+                    f" {', '.join(level.name for level in WarningEnum)}"
                 )
         return value
-
-    @field_serializer("warning_level")
-    def serialize_warning_level(self, value: WarningEnum):
-        return value.name
 
     @property
     @abstractmethod
